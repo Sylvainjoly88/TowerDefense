@@ -17,7 +17,8 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('menu');
 
   // État : choix de carte (défaut = serpent vertical 15×20)
-  const [mapShape, setMapShape] = useState<PathShape>('serpent-vertical');
+
+  const [mapShape, setMapShape] = useState<PathShape>('U');
   const [mapCols, setMapCols] = useState<number>(15);
   const [mapRows, setMapRows] = useState<number>(20);
 
