@@ -1,40 +1,58 @@
 /**
- * Composant racine : gère la navigation "écran" par un simple state local.
- * Écrans :
- *  - menu       : écran d'accueil
- *  - play       : jeu (boucle canvas)
- *  - search     : placeholder "Recherche"
- *  - encyclo    : placeholder "Encyclopédie"
- *  - stats      : placeholder "Statistiques"
- *
- * Remarque : on n'utilise PAS de router ici pour rester simple.
+ * Composant racine :
+ * - Ajoute un écran "selectMap" entre le Menu et le Jeu.
+ * - Stocke le choix de carte (shape, cols, rows) et le passe à GameScreen.
  */
+
 import { useState } from 'react';
 import Menu from './screens/Menu';
 import Placeholder from './screens/Placeholder';
 import GameScreen from './screens/GameScreen';
+import SelectMap from './screens/SelectMap';
+import type { PathShape } from './td/state/Level';
 
-type Screen = 'menu' | 'play' | 'search' | 'encyclo' | 'stats';
+type Screen = 'menu' | 'selectMap' | 'play' | 'search' | 'encyclo' | 'stats';
 
 export default function App() {
-  // État courant de l'écran affiché
   const [screen, setScreen] = useState<Screen>('menu');
+
+  // État : choix de carte (défaut = serpent vertical 15×20)
+  const [mapShape, setMapShape] = useState<PathShape>('serpent-vertical');
+  const [mapCols, setMapCols] = useState<number>(15);
+  const [mapRows, setMapRows] = useState<number>(20);
 
   return (
     <div className="app">
       {screen === 'menu' && (
         <Menu
-          onPlay={() => setScreen('play')}
+          onPlay={() => setScreen('selectMap')}
           onSearch={() => setScreen('search')}
           onEncyclo={() => setScreen('encyclo')}
           onStats={() => setScreen('stats')}
         />
       )}
 
-      {/* Écran de jeu (canvas + HUD). On passe un handler pour revenir au menu. */}
-      {screen === 'play' && <GameScreen onExit={() => setScreen('menu')} />}
+      {screen === 'selectMap' && (
+        <SelectMap
+          onBack={() => setScreen('menu')}
+          onPick={(shape, cols, rows) => {
+            setMapShape(shape);
+            setMapCols(cols);
+            setMapRows(rows);
+            setScreen('play');
+          }}
+        />
+      )}
 
-      {/* Écrans "à venir" très simples */}
+      {screen === 'play' && (
+        <GameScreen
+          onExit={() => setScreen('menu')}
+          shape={mapShape}
+          cols={mapCols}
+          rows={mapRows}
+        />
+      )}
+
       {screen === 'search' && (
         <Placeholder title="Recherche" onBack={() => setScreen('menu')} />
       )}

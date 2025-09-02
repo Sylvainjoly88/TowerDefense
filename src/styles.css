@@ -45,3 +45,33 @@ html, body, #root { height:100%; margin:0; background:#2f5d2f; color:var(--text)
   .btn, .stat { font-size: 16px; padding: 10px 12px; }
   .tower-card .emoji { font-size: 32px; }
 }
+
+/* Sélection de carte */
+.map-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+.map-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 14px;
+  background: #4a3a30;
+  color: #fff;
+  text-align: left;
+  border: none;
+  cursor: pointer;
+}
+.map-card:hover { filter: brightness(1.05); }
+.map-thumb {
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  border: 2px solid rgba(0,0,0,0.25);
+  background: #2b4f2b;
+}
+.map-meta { display: flex; align-items: center; justify-content: space-between; }
+.map-name { font-weight: 700; }
+.map-size { opacity: 0.85; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
