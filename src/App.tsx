@@ -1,35 +1,38 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+// src/App.tsx
+import { useState } from 'react';
+import Menu from './screens/Menu.tsx';
+import Placeholder from './screens/Placeholder.tsx';
+import GameScreen from './screens/GameScreen.tsx';
 
-function App() {
-  const [count, setCount] = useState(0)
+type Screen = 'menu' | 'play' | 'search' | 'encyclo' | 'stats';
+
+export default function App() {
+  const [screen, setScreen] = useState<Screen>('menu');
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+    <div className="app">
+      {screen === 'menu' && (
+        <Menu
+          onPlay={() => setScreen('play')}
+          onSearch={() => setScreen('search')}
+          onEncyclo={() => setScreen('encyclo')}
+          onStats={() => setScreen('stats')}
+        />
+      )}
 
-export default App
+      {screen === 'play' && (
+        <GameScreen onExit={() => setScreen('menu')} />
+      )}
+
+      {screen === 'search' && (
+        <Placeholder title="Recherche" onBack={() => setScreen('menu')} />
+      )}
+      {screen === 'encyclo' && (
+        <Placeholder title="Encyclopédie" onBack={() => setScreen('menu')} />
+      )}
+      {screen === 'stats' && (
+        <Placeholder title="Statistiques" onBack={() => setScreen('menu')} />
+      )}
+    </div>
+  );
+}
