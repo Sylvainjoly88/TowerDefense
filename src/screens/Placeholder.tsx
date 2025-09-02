@@ -1,5 +1,8 @@
-// src/screens/Placeholder.tsx
+/**
+ * Petit écran "placeholder" réutilisable pour les sections non encore développées.
+ */
 type Props = { title: string; onBack: () => void };
+
 export default function Placeholder({ title, onBack }: Props) {
   return (
     <div className="screen center">
