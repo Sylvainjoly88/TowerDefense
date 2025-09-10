@@ -1,195 +1,222 @@
-/**
- * Écran de jeu — version "6 tours EXACTEMENT, gratuites".
- * Reçoit la carte choisie (shape/cols/rows) via les props.
- */
+import React, { useEffect, useRef, useState } from "react";
+import "../styles.css";
 
-import { useEffect, useRef, useState } from 'react';
-import { Game } from '../td/core/Game';
-import { createLevel, type PathShape } from '../td/state/Level';   // ⚠️ Majuscule
-import type { GameState, TowerKind } from '../td/core/Types';      // ⚠️ Majuscule
-import { spawnWave } from '../td/systems/Update';                   // ⚠️ Majuscule
+// Si ton projet a déjà ces imports, garde les tiens.
+// Le moteur de jeu est supposé exposer une API start/stop et des callbacks d'input.
+// Adapte les imports si besoin selon ton arborescence.
+import { Game } from "../td/core/Game";
+import { createLevel } from "../td/state/level";
 
-type Props = {
-  onExit: () => void;
-  shape: PathShape;
-  cols: number;
-  rows: number;
+type HUDState = {
+  gold: number;
+  life: number;
+  wave: number;
+  running: boolean;
+  timeScale: number;
 };
 
-const REQUIRED_TOWERS = 6;
+// Utilitaire: convertit un event pointeur/touch/souris en coordonnées canvas corrigées
+function getCanvasCoordinates(
+  e: PointerEvent | MouseEvent | TouchEvent,
+  canvas: HTMLCanvasElement
+) {
+  const rect = canvas.getBoundingClientRect();
 
-export default function GameScreen({ onExit, shape, cols, rows }: Props) {
+  let clientX: number;
+  let clientY: number;
+
+  if ((e as TouchEvent).touches && (e as TouchEvent).touches.length > 0) {
+    const t = (e as TouchEvent).touches[0];
+    clientX = t.clientX;
+    clientY = t.clientY;
+  } else if ((e as any).clientX != null && (e as any).clientY != null) {
+    clientX = (e as MouseEvent).clientX;
+    clientY = (e as MouseEvent).clientY;
+  } else if ((e as PointerEvent).clientX != null && (e as PointerEvent).clientY != null) {
+    clientX = (e as PointerEvent).clientX;
+    clientY = (e as PointerEvent).clientY;
+  } else {
+    clientX = 0;
+    clientY = 0;
+  }
+
+  // Position relative au canvas dans l'espace CSS
+  const xCss = clientX - rect.left;
+  const yCss = clientY - rect.top;
+
+  // Corrige l'échelle si le canvas est redimensionné par CSS
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+
+  return {
+    x: xCss * scaleX,
+    y: yCss * scaleY,
+  };
+}
+
+export default function GameScreen() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [state, setState] = useState<GameState | null>(null);
-  const [mustPlace, setMustPlace] = useState(REQUIRED_TOWERS);
-  const [chooseAt, setChooseAt] = useState<{ x: number; y: number } | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const gameRef = useRef<Game | null>(null);
 
-  // Initialisation : crée le niveau selon la carte choisie
+  const [hud, setHud] = useState<HUDState>({
+    gold: 0,
+    life: 10,
+    wave: 1,
+    running: true,
+    timeScale: 1,
+  });
+
+  // Petit verrou pour éviter multiples placements tant que le doigt reste posé
+  const pointerLockRef = useRef<boolean>(false);
+
   useEffect(() => {
-    const level = createLevel(cols, rows, 36, shape); // 👈 utilise la forme sélectionnée
     const canvas = canvasRef.current!;
-    canvas.width = level.gridSize * level.cellSize;   // gridSize = largeur (cols)
-    canvas.height = rows * level.cellSize;            // hauteur = rows * cellSize
+    // Important pour mobile: empêche le scroll et le zoom gestuel sur la zone du jeu
+    canvas.style.touchAction = "none";
 
-    const ctx = canvas.getContext('2d')!;
-    const game = new Game(ctx, level);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Init jeu
+    const level = createLevel();
+    const game = new Game(ctx, level, {
+      onHudUpdate: (state: HUDState) => setHud((prev) => ({ ...prev, ...state })),
+    });
+    gameRef.current = game;
     game.start();
 
-    setState(level);
-    return () => game.stop();
-  }, [shape, cols, rows]);
+    // Gestion unifiée avec Pointer Events
+    const onPointerDown = (e: PointerEvent) => {
+      e.preventDefault();
+      if (pointerLockRef.current) return;
+      pointerLockRef.current = true;
 
-  useEffect(() => {
-    if (!state) return;
-    if (mustPlace === 0 && state.wave === 0) {
-      spawnWave(state);
-    }
-  }, [mustPlace, state]);
+      const { x, y } = getCanvasCoordinates(e, canvas);
+      // On laisse le moteur gérer l'action principale au pointerdown
+      game.handlePrimaryAction(x, y);
+    };
 
-  function hasTowerAt(x: number, y: number) {
-    if (!state) return false;
-    return state.towers.some((t) => t.cell.x === x && t.cell.y === y);
-  }
+    const onPointerUp = (e: PointerEvent) => {
+      e.preventDefault();
+      pointerLockRef.current = false;
+      // Si tu veux aussi déclencher une action au relâchement, tu peux:
+      // const { x, y } = getCanvasCoordinates(e, canvas);
+      // game.handlePointerUp?.(x, y);
+    };
 
-  function handlePlaceRequest(clientX: number, clientY: number, target: HTMLCanvasElement) {
-    if (!state) return;
-    if (state.towers.length >= REQUIRED_TOWERS) {
-      setMessage(`Limite de ${REQUIRED_TOWERS} tours atteinte`);
-      return;
-    }
-    const rect = target.getBoundingClientRect();
-    const x = Math.floor((clientX - rect.left) / state.cellSize);
-    const y = Math.floor((clientY - rect.top) / state.cellSize);
+    const onPointerMove = (e: PointerEvent) => {
+      // Optionnel: survol/drag
+      const { x, y } = getCanvasCoordinates(e, canvas);
+      game.handlePointerMove?.(x, y, e.buttons > 0);
+    };
 
-    if (state.grid[y]?.[x] !== 'grass') {
-      setMessage('Impossible de poser sur le chemin');
-      return;
-    }
-    if (hasTowerAt(x, y)) {
-      setMessage('Il y a déjà une tour ici');
-      return;
-    }
-    setChooseAt({ x, y });
-  }
+    // Fallback pour navigateurs anciens: souris + touch
+    const onMouseDown = (e: MouseEvent) => {
+      e.preventDefault();
+      if (pointerLockRef.current) return;
+      pointerLockRef.current = true;
+      const { x, y } = getCanvasCoordinates(e, canvas);
+      game.handlePrimaryAction(x, y);
+    };
+    const onMouseUp = (e: MouseEvent) => {
+      e.preventDefault();
+      pointerLockRef.current = false;
+    };
 
-  function onCanvasClick(e: React.MouseEvent<HTMLCanvasElement>) {
-    handlePlaceRequest(e.clientX, e.clientY, e.currentTarget);
-  }
-  function onCanvasTouch(e: React.TouchEvent<HTMLCanvasElement>) {
-    const t = e.changedTouches[0];
-    if (t) handlePlaceRequest(t.clientX, t.clientY, e.currentTarget);
-  }
+    const onTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      if (pointerLockRef.current) return;
+      pointerLockRef.current = true;
+      const { x, y } = getCanvasCoordinates(e, canvas);
+      game.handlePrimaryAction(x, y);
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      e.preventDefault();
+      pointerLockRef.current = false;
+    };
 
-  function placeTower(kind: TowerKind) {
-    if (!state || !chooseAt) return;
-    if (state.towers.length >= REQUIRED_TOWERS) {
-      setChooseAt(null);
-      setMessage(`Limite de ${REQUIRED_TOWERS} tours atteinte`);
-      return;
-    }
-    state.towers.push({
-      id: Date.now() + Math.random(),
-      kind,
-      cell: { x: chooseAt.x, y: chooseAt.y },
-      range: kind === 'mage' ? 120 : 96,
-      fireRate: kind === 'mage' ? 0.9 : 1.5,
-      damage: kind === 'mage' ? 35 : 20,
-      lastShotAt: 0,
-      level: 1,
-    });
-    setChooseAt(null);
-    setMustPlace((left) => Math.max(0, left - 1));
-  }
+    // On préfère Pointer Events s'ils sont disponibles
+    const supportsPointer = window.PointerEvent != null;
 
-  function togglePause() {
-    if (state) {
-      state.running = !state.running;
-      setMessage(state.running ? 'Lecture' : 'Pause');
+    if (supportsPointer) {
+      canvas.addEventListener("pointerdown", onPointerDown, { passive: false });
+      canvas.addEventListener("pointerup", onPointerUp, { passive: false });
+      canvas.addEventListener("pointermove", onPointerMove, { passive: true });
+    } else {
+      canvas.addEventListener("mousedown", onMouseDown, { passive: false });
+      window.addEventListener("mouseup", onMouseUp, { passive: false });
+      canvas.addEventListener("touchstart", onTouchStart, { passive: false });
+      window.addEventListener("touchend", onTouchEnd, { passive: false });
     }
-  }
-  function setSpeed(s: number) {
-    if (state) {
-      state.timeScale = s;
-      setMessage(`Vitesse ×${s}`);
+
+    return () => {
+      game.stop();
+      if (supportsPointer) {
+        canvas.removeEventListener("pointerdown", onPointerDown);
+        canvas.removeEventListener("pointerup", onPointerUp);
+        canvas.removeEventListener("pointermove", onPointerMove);
+      } else {
+        canvas.removeEventListener("mousedown", onMouseDown);
+        window.removeEventListener("mouseup", onMouseUp);
+        canvas.removeEventListener("touchstart", onTouchStart);
+        window.removeEventListener("touchend", onTouchEnd);
+      }
+    };
+  }, []);
+
+  const toggleRun = () => {
+    const game = gameRef.current;
+    if (!game) return;
+    if (hud.running) {
+      game.pause();
+      setHud((h) => ({ ...h, running: false }));
+    } else {
+      game.resume();
+      setHud((h) => ({ ...h, running: true }));
     }
-  }
+  };
+
+  const setSpeed = (s: number) => {
+    const game = gameRef.current;
+    if (!game) return;
+    game.setTimeScale(s);
+    setHud((h) => ({ ...h, timeScale: s }));
+  };
 
   return (
-    <div className="screen">
-      <div className="topbar">
-        <button className="btn" onClick={onExit}>⬅ Menu</button>
-        <div className="stat">❤️ {state?.life ?? 0}</div>
-        <div className="stat">Wave {state?.wave ?? 0}</div>
-        <div className="spacer" />
-        <button className="btn" onClick={togglePause}>
-          {state?.running ? '⏸ Pause' : '▶️ Play'}
-        </button>
-        <div className="btn-group">
-          <button className="btn" onClick={() => setSpeed(1)}>×1</button>
-          <button className="btn" onClick={() => setSpeed(1.5)}>×1.5</button>
-          <button className="btn" onClick={() => setSpeed(2)}>×2</button>
-        </div>
-        <button
-          className="btn primary"
-          onClick={() => state && spawnWave(state)}
-          disabled={mustPlace > 0}
-          title={mustPlace > 0 ? `Place encore ${mustPlace} tour(s)` : 'Lancer une vague'}
-        >
-          Next Wave
-        </button>
-      </div>
-
-      <div className="playarea">
-        <canvas
-          ref={canvasRef}
-          onClick={onCanvasClick}
-          onTouchStart={onCanvasTouch}
-          className="board"
-          aria-label="zone de jeu"
-        />
-        <div className="side">
-          <div className="panel">
-            <h3>Détails</h3>
-            {mustPlace > 0 ? (
-              <>
-                <p>Place {mustPlace} tour(s) pour commencer.</p>
-                <p>Clique/touche une case d’herbe pour ouvrir le choix.</p>
-              </>
-            ) : (
-              <p>Tu joues maintenant avec {REQUIRED_TOWERS} tours fixes.</p>
-            )}
-            <p>Carte : <code>{shape}</code> — {cols}×{rows}</p>
-          </div>
-          {message && (
-            <div className="panel" role="status" aria-live="polite">
-              {message}
-              <button className="btn" onClick={() => setMessage(null)}>OK</button>
-            </div>
-          )}
+    <div className="screen game-screen">
+      <div className="hud">
+        <div>❤️ {hud.life}</div>
+        <div>💰 {hud.gold}</div>
+        <div>Wave {hud.wave}</div>
+        <div className="controls">
+          <button onClick={toggleRun}>{hud.running ? "Pause" : "Play"}</button>
+          <button
+            className={hud.timeScale === 1 ? "active" : ""}
+            onClick={() => setSpeed(1)}
+          >
+            ×1
+          </button>
+          <button
+            className={hud.timeScale === 1.5 ? "active" : ""}
+            onClick={() => setSpeed(1.5)}
+          >
+            ×1.5
+          </button>
+          <button
+            className={hud.timeScale === 2 ? "active" : ""}
+            onClick={() => setSpeed(2)}
+          >
+            ×2
+          </button>
         </div>
       </div>
 
-      {chooseAt && (
-        <div className="modal" onClick={() => setChooseAt(null)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <h3 className="modal-title">CHOISIR UNE TOUR</h3>
-            <div className="tower-grid">
-              <button className="tower-card" onClick={() => placeTower('mage')}>
-                <div className="emoji">🧙‍♂️</div>
-                <div className="label">Mage</div>
-                <small>Dégâts 35 • Portée ++ • Cadence −</small>
-              </button>
-              <button className="tower-card" onClick={() => placeTower('combat')}>
-                <div className="emoji">🛡️</div>
-                <div className="label">Combat</div>
-                <small>Dégâts 20 • Portée + • Cadence +</small>
-              </button>
-            </div>
-            <button className="btn" onClick={() => setChooseAt(null)}>Annuler</button>
-          </div>
-        </div>
-      )}
+      {/* Dimensions internes du canvas en pixels logiques.
+          Le CSS peut redimensionner visuellement, d’où l’importance du mapping coords */}
+      <div className="canvas-wrap">
+        <canvas ref={canvasRef} width={960} height={640} />
+      </div>
     </div>
   );
 }
