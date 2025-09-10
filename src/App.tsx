@@ -1,68 +1,64 @@
-/**
- * Composant racine :
- * - Ajoute un écran "selectMap" entre le Menu et le Jeu.
- * - Stocke le choix de carte (shape, cols, rows) et le passe à GameScreen.
- */
+import React, { useState } from "react";
+import GameScreen from "./screens/GameScreen";
+// Adapte ces imports à ton arborescence réelle si besoin :
+import Menu from "./screens/Menu";
+import Placeholder from "./screens/Placeholder";
 
-import { useState } from 'react';
-import Menu from './screens/Menu';
-import Placeholder from './screens/Placeholder';
-import GameScreen from './screens/GameScreen';
-import SelectMap from './screens/SelectMap';
-import type { PathShape } from './td/state/Level';
-
-type Screen = 'menu' | 'selectMap' | 'play' | 'search' | 'encyclo' | 'stats';
+type Screen = "menu" | "game" | "placeholder";
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>('menu');
+  const [screen, setScreen] = useState<Screen>("menu");
 
-  // État : choix de carte (défaut = serpent vertical 15×20)
-
-  const [mapShape, setMapShape] = useState<PathShape>('U');
-  const [mapCols, setMapCols] = useState<number>(15);
-  const [mapRows, setMapRows] = useState<number>(20);
+  const goMenu = () => setScreen("menu");
+  const goGame = () => setScreen("game");
+  const goPlaceholder = () => setScreen("placeholder");
 
   return (
-    <div className="app">
-      {screen === 'menu' && (
+    <div className="app-root">
+      {screen === "menu" && (
         <Menu
-          onPlay={() => setScreen('selectMap')}
-          onSearch={() => setScreen('search')}
-          onEncyclo={() => setScreen('encyclo')}
-          onStats={() => setScreen('stats')}
+          onStartGame={goGame}
+          onOpenPlaceholder={goPlaceholder}
         />
       )}
 
-      {screen === 'selectMap' && (
-        <SelectMap
-          onBack={() => setScreen('menu')}
-          onPick={(shape, cols, rows) => {
-            setMapShape(shape);
-            setMapCols(cols);
-            setMapRows(rows);
-            setScreen('play');
-          }}
-        />
+      {screen === "game" && (
+        <GameScreen onExit={goMenu} />
       )}
 
-      {screen === 'play' && (
-        <GameScreen
-          onExit={() => setScreen('menu')}
-          shape={mapShape}
-          cols={mapCols}
-          rows={mapRows}
-        />
-      )}
-
-      {screen === 'search' && (
-        <Placeholder title="Recherche" onBack={() => setScreen('menu')} />
-      )}
-      {screen === 'encyclo' && (
-        <Placeholder title="Encyclopédie" onBack={() => setScreen('menu')} />
-      )}
-      {screen === 'stats' && (
-        <Placeholder title="Statistiques" onBack={() => setScreen('menu')} />
+      {screen === "placeholder" && (
+        <Placeholder onExit={goMenu} />
       )}
     </div>
   );
 }
+
+/**
+ * Si tes composants Menu et Placeholder ne déclarent pas encore leurs props,
+ * voici des déclarations minimales à placer dans leurs fichiers respectifs
+ * pour lever l’erreur "onExit n'existe pas sur IntrinsicAttributes".
+ *
+ * // src/screens/Menu.tsx
+ * import React from "react";
+ * type Props = { onStartGame?: () => void; onOpenPlaceholder?: () => void };
+ * export default function Menu({ onStartGame, onOpenPlaceholder }: Props) {
+ *   return (
+ *     <div className="menu">
+ *       <button onClick={onStartGame}>Start</button>
+ *       <button onClick={onOpenPlaceholder}>Placeholder</button>
+ *     </div>
+ *   );
+ * }
+ *
+ * // src/screens/Placeholder.tsx
+ * import React from "react";
+ * type Props = { onExit?: () => void };
+ * export default function Placeholder({ onExit }: Props) {
+ *   return (
+ *     <div className="placeholder">
+ *       <p>Work in progress...</p>
+ *       <button onClick={onExit}>Back</button>
+ *     </div>
+ *   );
+ * }
+ */
