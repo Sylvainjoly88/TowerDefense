@@ -1,3 +1,8 @@
+/* Mobile: éviter le zoom/scroll sur le canvas pendant le jeu */
+canvas {
+  touch-action: none;
+}
+
 /* Styles globaux très simples + notes pour adapter rapidement. */
 :root { --bg:#172619; --panel:#3b2a22; --text:#fff; --muted:#d8c7b6; --accent:#f1b962; }
 * { box-sizing: border-box; }
