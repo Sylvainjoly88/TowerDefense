@@ -10,6 +10,15 @@
  */
 import type { GameState, Grid, Vec2 } from '../core/Types';
 
+// Stub minimal pour satisfaire la compilation.
+// Remplace par ta vraie logique si tu as déjà un générateur de niveau.
+
+export type Level = any;
+
+export function createLevel(): Level {
+  return {};
+}
+
 export type PathShape = 'U' | 'S' | 'x-base' | 'aleatoire';
 
 export function createLevel(
